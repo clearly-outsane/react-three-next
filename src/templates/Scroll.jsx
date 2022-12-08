@@ -4,8 +4,10 @@
 // 2 - add <ScrollTicker /> wherever in the canvas
 // 3 - enjoy
 import { addEffect, useFrame } from '@react-three/fiber'
+import { useFrame as useHamoFrame, useLayoutEffect } from '@studio-freight/hamo'
+
 import Lenis from '@studio-freight/lenis'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRef } from 'react'
 import * as THREE from 'three'
 
@@ -19,51 +21,50 @@ const { damp } = THREE.MathUtils
 export default function Scroll({ children }) {
   const content = useRef(null)
   const wrapper = useRef(null)
+  const [lenis, setLenis] = useState(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    // if (isTouchDevice === undefined) return
+    window.scrollTo(0, 0)
     const lenis = new Lenis({
-      wrapper: wrapper.current,
-      content: content.current,
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // https://www.desmos.com/calculator/brs54l4xou
-      direction: 'vertical', // vertical, horizontal
-      gestureDirection: 'vertical', // vertical, horizontal, both
+      duration: 1.4,
+      easing: (t) => (t === 1 ? 1 : 1 - Math.pow(2, -9 * t)),
+      direction: 'vertical',
+      gestureDirection: 'vertical',
       smooth: true,
       smoothTouch: false,
       touchMultiplier: 2,
-      infinite: false,
+      mouseMultiplier: 1,
     })
+    window.lenis = lenis
+    setLenis(lenis)
 
-    lenis.on('scroll', ({ scroll, progress }) => {
-      state.top = scroll
-      state.progress = progress
-    })
-    const effectSub = addEffect((time) => lenis.raf(time))
     return () => {
-      effectSub()
       lenis.destroy()
+      setLenis(null)
     }
   }, [])
 
+  useEffect(() => {
+    if (!lenis) return
+    lenis.on('scroll', (e) => {
+      state.top = e.scroll
+      state.progress = e.progress
+      console.log(e)
+    })
+    lenis.notify()
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lenis])
+
+  useHamoFrame((time) => {
+    lenis?.raf(time)
+  }, [])
+
   return (
-    <div
-      ref={wrapper}
-      style={{
-        position: 'absolute',
-        overflow: 'hidden',
-        width: '100%',
-        height: '100%',
-        top: 0,
-      }}>
-      <div
-        ref={content}
-        style={{
-          position: 'relative',
-          minHeight: '200vh',
-        }}>
-        {children}
-      </div>
-    </div>
+    <>
+      <div>{children}</div>
+    </>
   )
 }
 
